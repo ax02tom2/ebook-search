@@ -74,7 +74,7 @@ with tab1:
             st.warning("請先輸入網址！")
 
 # ==========================================
-# 分頁 2：台灣官方 PDF 搜尋 (Serper API)
+# 分頁 2：台灣官方 PDF 搜尋 (Serper API - 自動翻頁升級版)
 # ==========================================
 with tab2:
     st.subheader("搜尋台灣官方與學術 PDF 文獻")
@@ -82,7 +82,7 @@ with tab2:
     
     search_query = st.text_input("🔍 輸入專業關鍵字：", placeholder="例如: 大規模崩塌 邊坡監測")
     
-    # 新增：網頁拉桿，取代手動修改程式碼
+    # 數量拉桿不變，我們在後端處理翻頁邏輯
     num_results = st.slider("📊 選擇要顯示的文獻數量：", min_value=10, max_value=50, value=20, step=10)
     
     if st.button("開始搜尋官方文獻"):
@@ -90,42 +90,51 @@ with tab2:
             st.error("❌ 請先在左側欄位填入 Serper API Key。")
         elif search_query:
             clean_key = SERPER_API_KEY.strip().replace('"', '').replace("'", "")
-            st.info(f"正在使用金鑰進行搜尋... (前四碼 `{clean_key[:4]}`)")
             
-            with st.spinner("正在聯絡 Serper 伺服器，請稍候..."):
+            with st.spinner(f"正在聯絡伺服器，啟動無感翻頁技術抓取 {num_results} 筆資料，請稍候..."):
                 try:
                     refined_query = f"{search_query} filetype:pdf (site:gov.tw OR site:edu.tw)"
                     serper_url = "https://google.serper.dev/search"
                     
-                    # 使用變數直接帶入拉桿數值，保證格式絕對正確
-                    payload = json.dumps({
-                        "q": refined_query,
-                        "gl": "tw",
-                        "hl": "zh-tw",
-                        "num": num_results
-                    })
-                    headers = {
-                        'X-API-KEY': clean_key,
-                        'Content-Type': 'application/json'
-                    }
+                    all_results = []
+                    # 計算需要翻幾頁 (例如 50 筆 = 翻 5 頁)
+                    pages_to_fetch = num_results // 10
                     
-                    response = requests.post(serper_url, headers=headers, data=payload, timeout=15)
-                    
-                    if response.status_code == 403:
-                        st.error("❌ 伺服器拒絕存取 (403 Forbidden)！金鑰可能失效或額度用盡。")
-                        st.stop()
-                    elif response.status_code == 400:
-                        st.error("❌ 請求格式錯誤 (400 Bad Request)！請確認搜尋條件。")
-                        st.stop()
+                    for page in range(1, pages_to_fetch + 1):
+                        payload = json.dumps({
+                            "q": refined_query,
+                            "gl": "tw",
+                            "hl": "zh-tw",
+                            "page": page  # 使用標準 page 參數進行安全翻頁，避開 num 參數的限制
+                        })
+                        headers = {
+                            'X-API-KEY': clean_key,
+                            'Content-Type': 'application/json'
+                        }
                         
-                    response.raise_for_status()
-                    data = response.json()
+                        response = requests.post(serper_url, headers=headers, data=payload, timeout=15)
                         
-                    results = data.get("organic", [])
+                        # 顯示最真實的原廠錯誤，方便除錯
+                        if response.status_code >= 400:
+                            st.error(f"❌ 伺服器發生錯誤 (HTTP 狀態碼: {response.status_code})！")
+                            st.error(f"⚠️ Serper 官方詳細錯誤訊息：\n\n`{response.text}`")
+                            st.stop()
+                            
+                        data = response.json()
+                        page_results = data.get("organic", [])
+                        
+                        if not page_results:
+                            break  # 如果某一頁已經沒有資料了，就提早結束翻頁
+                            
+                        all_results.extend(page_results)
                     
-                    if results:
-                        st.success(f"✅ 成功找到最相關的 {len(results)} 份 PDF 文獻！")
-                        for idx, item in enumerate(results):
+                    # 顯示最終合併的結果
+                    if all_results:
+                        # 裁切陣列，確保數量不會超過使用者拉桿要求的數量
+                        all_results = all_results[:num_results]
+                        st.success(f"✅ 成功找到最相關的 {len(all_results)} 份 PDF 文獻！")
+                        
+                        for idx, item in enumerate(all_results):
                             st.markdown(f"### {idx+1}. {item.get('title', '無標題')}")
                             st.markdown(f"> {item.get('snippet', '無摘要描述')}")
                             st.markdown(f"[📥 點此直接下載 PDF 檔案]({item.get('link')})")
