@@ -6,26 +6,17 @@ from urllib.parse import urlparse, urljoin
 import os
 import json
 
-# 修改網頁分頁標籤名稱與圖示
 st.set_page_config(page_title="工程防災文獻快搜", page_icon="⛏️", layout="wide")
 
 st.title("⛏️ 工程防災文獻快搜")
 st.write("專為地質與邊坡工程打造：支援官方網頁深度爬取，以及政府/學術 PDF 報告精準檢索。")
 
-# --- 自動讀取 API Key 機制 ---
-# 嘗試從 Streamlit 機密檔中讀取，若沒有則保持空白
-try:
-    saved_api_key = st.secrets["SERPER_API_KEY"]
-except:
-    saved_api_key = ""
-
+# --- 側邊欄設定 Serper API ---
 st.sidebar.header("⚙️ 搜尋 API 設定")
 st.sidebar.write("請輸入 Serper API 金鑰以啟用第二分頁搜尋功能：")
-# 將讀取到的密碼設為預設值
-SERPER_API_KEY = st.sidebar.text_input("Serper API Key", type="password", value=saved_api_key)
+SERPER_API_KEY = st.sidebar.text_input("Serper API Key", type="password")
 st.sidebar.markdown("[👉 點此免費取得 Serper API 金鑰](https://serper.dev/)")
 
-# 新增第三個分頁
 tab1, tab2, tab3 = st.tabs(["🕷️ 官方網址文獻爬取 (Web Scraper)", "🔍 台灣官方 PDF 搜尋 (Serper API)", "🛠️ 隱藏 PDF 破解工具箱"])
 
 # ==========================================
@@ -108,7 +99,7 @@ with tab2:
                         "num": 100
                     })
                     headers = {
-                        'X-API-KEY': SERPER_API_KEY,
+                        'X-API-KEY': SERPER_API_KEY.strip(),
                         'Content-Type': 'application/json'
                     }
                     
