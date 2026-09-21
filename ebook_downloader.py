@@ -4,14 +4,14 @@ import cloudscraper
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urljoin
 import os
-from duckduckgo_search import DDGS
+from googlesearch import search  # 載入全新的免 API 金鑰 Google 搜尋套件
 
 st.set_page_config(page_title="地質與邊坡文獻下載中心", page_icon="⛰️", layout="wide")
 
 st.title("⛰️ 地質與邊坡監測文獻下載中心")
-st.write("專為工程防災領域打造：支援官方網頁深度爬取，以及政府/學術 PDF 精準搜尋 (免 API Key)。")
+st.write("專為工程防災領域打造：支援官方網頁深度爬取，以及政府/學術 PDF 精準搜尋 (使用 Google 引擎，免 API Key)。")
 
-tab1, tab2 = st.tabs(["🕷️ 官方網址文獻爬取 (Web Scraper)", "🔍 台灣官方 PDF 搜尋 (DuckDuckGo)"])
+tab1, tab2 = st.tabs(["🕷️ 官方網址文獻爬取 (Web Scraper)", "🔍 台灣官方 PDF 搜尋 (Google)"])
 
 # ==========================================
 # 分頁 1：官方網址文獻爬取
@@ -69,7 +69,7 @@ with tab1:
             st.warning("請先輸入網址！")
 
 # ==========================================
-# 分頁 2：台灣官方 PDF 搜尋 (DuckDuckGo 引擎)
+# 分頁 2：台灣官方 PDF 搜尋 (Google 搜尋引擎)
 # ==========================================
 with tab2:
     st.subheader("搜尋台灣官方與學術 PDF 文獻")
@@ -79,26 +79,24 @@ with tab2:
     
     if st.button("開始搜尋官方文獻"):
         if search_query:
-            with st.spinner("正在搜尋文獻資料庫，請稍候..."):
+            with st.spinner("正在搜尋 Google 文獻資料庫，請稍候..."):
                 try:
                     # 強制加入搜尋條件，鎖定台灣政府與學術網站的 PDF
-                    refined_query = f"{search_query} filetype:pdf site:gov.tw"
+                    refined_query = f"{search_query} filetype:pdf (site:gov.tw OR site:edu.tw)"
                     
-                    # 使用 DuckDuckGo 進行搜尋
-                    with DDGS() as ddgs:
-                        # 取得前 10 筆結果
-                        results = list(ddgs.text(refined_query, max_results=10))
+                    # 使用 googlesearch-python 進行搜尋，advanced=True 會抓出標題與描述
+                    results = list(search(refined_query, num_results=10, lang="zh-TW", advanced=True))
                         
                     if results:
-                        st.success(f"✅ 找到最相關的 {len(results)} 份 PDF 文獻！")
+                        st.success(f"✅ 成功從 Google 找到最相關的 {len(results)} 份 PDF 文獻！")
                         
                         for idx, item in enumerate(results):
-                            st.markdown(f"### {idx+1}. {item.get('title')}")
-                            st.markdown(f"> {item.get('body')}")
-                            st.markdown(f"[📥 點此直接下載 PDF 檔案]({item.get('href')})")
+                            st.markdown(f"### {idx+1}. {item.title}")
+                            st.markdown(f"> {item.description}")
+                            st.markdown(f"[📥 點此直接下載 PDF 檔案]({item.url})")
                             st.markdown("---")
                     else:
-                        st.warning("找不到符合條件的 PDF，請嘗試精簡關鍵字（或是替換不同的工程詞彙）！")
+                        st.warning("找不到符合條件的 PDF，請嘗試精簡關鍵字！")
                         
                 except Exception as e:
                     st.error(f"❌ 搜尋失敗，請稍後再試: {e}")
