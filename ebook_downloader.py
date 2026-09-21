@@ -99,7 +99,7 @@ with tab2:
                         "q": refined_query,
                         "gl": "tw",
                         "hl": "zh-tw",
-                        "num": 100
+                        "num": 50
                     })
                     headers = {
                         'X-API-KEY': clean_key,
