@@ -7,10 +7,9 @@ import os
 import json
 
 # 修改網頁分頁標籤名稱與圖示
-st.set_page_config(page_title="GeoDocs 探勘者", page_icon="⛏️", layout="wide")
+st.set_page_config(page_title="工程防災文獻快搜", page_icon="⛏️", layout="wide")
 
-# 修改網頁主標題
-st.title("⛏️ GeoDocs 探勘者：工程防災文獻快搜")
+st.title("⛏️ 工程防災文獻快搜")
 st.write("專為地質與邊坡工程打造：支援官方網頁深度爬取，以及政府/學術 PDF 報告精準檢索。")
 
 # --- 側邊欄設定 Serper API ---
@@ -19,7 +18,8 @@ st.sidebar.write("請輸入 Serper API 金鑰以啟用第二分頁搜尋功能�
 SERPER_API_KEY = st.sidebar.text_input("Serper API Key", type="password")
 st.sidebar.markdown("[👉 點此免費取得 Serper API 金鑰](https://serper.dev/)")
 
-tab1, tab2 = st.tabs(["🕷️ 官方網址文獻爬取 (Web Scraper)", "🔍 台灣官方 PDF 搜尋 (Serper API)"])
+# 新增第三個分頁
+tab1, tab2, tab3 = st.tabs(["🕷️ 官方網址文獻爬取 (Web Scraper)", "🔍 台灣官方 PDF 搜尋 (Serper API)", "🛠️ 隱藏 PDF 破解工具箱"])
 
 # ==========================================
 # 分頁 1：官方網址文獻爬取
@@ -91,16 +91,14 @@ with tab2:
         elif search_query:
             with st.spinner("正在透過專業 API 搜尋 Google 文獻資料庫，請稍候..."):
                 try:
-                    # 強制加入搜尋條件，鎖定台灣政府與學術網站的 PDF
                     refined_query = f"{search_query} filetype:pdf (site:gov.tw OR site:edu.tw)"
                     
-                    # 呼叫 Serper API
                     serper_url = "https://google.serper.dev/search"
                     payload = json.dumps({
                         "q": refined_query,
-                        "gl": "tw",      # 設定地區為台灣
-                        "hl": "zh-tw",   # 設定語言為繁體中文
-                        "num": 10        # 回傳 10 筆結果
+                        "gl": "tw",
+                        "hl": "zh-tw",
+                        "num": 10
                     })
                     headers = {
                         'X-API-KEY': SERPER_API_KEY,
@@ -128,3 +126,48 @@ with tab2:
                     st.error(f"❌ 搜尋失敗，請確認 API Key 是否正確或稍後再試: {e}")
         else:
             st.warning("請輸入搜尋關鍵字！")
+
+# ==========================================
+# 分頁 3：隱藏 PDF 破解工具箱 (Bookmarklet)
+# ==========================================
+with tab3:
+    st.subheader("🛠️ 網頁閱讀器 PDF 強制下載工具")
+    st.write("當政府網站隱藏了下載按鈕，且使用 PDF.js 渲染電子書時，可使用以下工具強制從瀏覽器記憶體匯出檔案。")
+    
+    st.markdown("### 方法一：建立「一鍵下載」書籤 (推薦)")
+    st.write("這是一段打包好的 JavaScript 書籤代碼 (Bookmarklet)。設定完成後，未來遇到無法下載的 PDF 網頁，只要點擊該書籤即可自動下載，**完全不需要按 F12**。")
+    st.markdown("""
+    **設定步驟：**
+    1. 在瀏覽器的書籤列上點擊右鍵 ➡️ 選擇「新增網頁」或「新增書籤」。
+    2. 名稱隨便取（例如：`強制下載 PDF`）。
+    3. 在「網址」或「URL」欄位中，**貼上以下整段程式碼**，然後存檔。
+    """)
+    
+    bookmarklet_code = """javascript:(function(){
+    try {
+        PDFViewerApplication.pdfDocument.getData().then(data => {
+            const blob = new Blob([data], { type: 'application/pdf' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = '強制破解下載文件.pdf';
+            a.click();
+        }).catch(e => alert('匯出失敗：' + e));
+    } catch(e) {
+        alert('找不到 PDF.js 核心，請確認網頁是否使用此技術，或檢查是否被包裝在 iframe 中。');
+    }
+})();"""
+    st.code(bookmarklet_code, language="javascript")
+    
+    st.markdown("---")
+    
+    st.markdown("### 方法二：主控台 (Console) 終極匯出法")
+    st.write("如果書籤失效，請在該電子書網頁按下 `F12` 開啟開發者工具，切換到 `Console (主控台)`，將以下代碼貼上並按 Enter 執行：")
+    
+    console_code = """PDFViewerApplication.pdfDocument.getData().then(data => {
+  const blob = new Blob([data], { type: 'application/pdf' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '下載文件.pdf';
+  a.click();
+});"""
+    st.code(console_code, language="javascript")
