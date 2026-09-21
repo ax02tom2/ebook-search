@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+import cloudscraper
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urljoin
 import os
@@ -9,39 +10,31 @@ st.set_page_config(page_title="全能電子書下載中心", page_icon="📖", l
 st.title("📖 全能電子書下載與搜尋中心")
 st.write("結合網頁爬蟲與開源書庫 API，找書、下載一站完成！")
 
-# 建立兩個分頁：一個用來貼網址爬蟲，一個用來關鍵字搜尋
 tab1, tab2 = st.tabs(["🕷️ 網址解析下載 (Web Scraper)", "🔍 直接搜尋書庫 (Search)"])
 
 # ==========================================
-# 分頁 1：網址解析與下載 (Web Scraper)
+# 分頁 1：網址解析與下載 (Web Scraper) - Cloudscraper 進階版
 # ==========================================
 with tab1:
     st.subheader("貼上電子書介紹頁面或下載網址")
-    st.info("💡 如果貼上的是網頁，系統會自動爬取頁面內所有隱藏的 .epub, .pdf, .mobi 下載連結。")
+    st.info("💡 系統已啟用 Cloudscraper 繞過防火牆機制，嘗試爬取隱藏的電子書連結。")
     
     url = st.text_input("🔗 貼上網址：", placeholder="https://example.com/book-page")
     
     if st.button("🚀 解析網頁 / 取得檔案"):
         if url:
             try:
-                with st.spinner("正在連線並解析網頁，請稍候..."):
-                    # 🌟 進階模擬真實瀏覽器標頭 (Headers)
-                    advanced_headers = {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-                        'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
-                        'Accept-Encoding': 'gzip, deflate, br',
-                        'Connection': 'keep-alive',
-                        'Upgrade-Insecure-Requests': '1',
-                        'Sec-Fetch-Dest': 'document',
-                        'Sec-Fetch-Mode': 'navigate',
-                        'Sec-Fetch-Site': 'none',
-                        'Sec-Fetch-User': '?1'
-                    }
+                with st.spinner("啟動進階防護繞過機制，正在解析網頁..."):
+                    # 使用 cloudscraper 產生一個模擬真實 Chrome 瀏覽器的連線器
+                    scraper = cloudscraper.create_scraper(
+                        browser={
+                            'browser': 'chrome',
+                            'platform': 'windows',
+                            'desktop': True
+                        }
+                    )
                     
-                    # 使用 Session 處理可能的 Cookie 檢查
-                    session = requests.Session()
-                    response = session.get(url, headers=advanced_headers, timeout=20)
+                    response = scraper.get(url, timeout=20)
                     response.raise_for_status()
                     
                     content_type = response.headers.get('Content-Type', '').lower()
@@ -83,7 +76,7 @@ with tab1:
                             st.warning("⚠️ 網頁中沒有找到常見的電子書下載連結 (.epub, .pdf, .mobi)。")
                             
             except requests.exceptions.Timeout:
-                st.error("❌ 連線逾時 (Timeout)：該網站可能回應太慢，或是其防火牆阻擋了此次自動化請求。")
+                st.error("❌ 連線逾時 (Timeout)：該網站防火牆等級極高，已將此連線直接阻斷。")
             except Exception as e:
                 st.error(f"❌ 解析失敗: {e}")
         else:
