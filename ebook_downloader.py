@@ -13,7 +13,6 @@ st.write("專為地質與邊坡工程打造：支援官方網頁深度爬取，�
 
 st.sidebar.header("⚙️ 搜尋 API 設定")
 st.sidebar.write("請輸入 Serper API 金鑰以啟用第二分頁搜尋功能：")
-# 取消自動讀取，回到最單純的輸入框
 SERPER_API_KEY = st.sidebar.text_input("Serper API Key", type="password")
 st.sidebar.markdown("[👉 點此免費取得 Serper API 金鑰](https://serper.dev/)")
 
@@ -83,23 +82,27 @@ with tab2:
     
     search_query = st.text_input("🔍 輸入專業關鍵字：", placeholder="例如: 大規模崩塌 邊坡監測")
     
+    # 新增：網頁拉桿，取代手動修改程式碼
+    num_results = st.slider("📊 選擇要顯示的文獻數量：", min_value=10, max_value=50, value=20, step=10)
+    
     if st.button("開始搜尋官方文獻"):
         if not SERPER_API_KEY:
             st.error("❌ 請先在左側欄位填入 Serper API Key。")
         elif search_query:
-            # 防呆機制：強制清除任何可能的引號與空白
             clean_key = SERPER_API_KEY.strip().replace('"', '').replace("'", "")
-            st.info(f"🕵️ 正在測試的金鑰前四碼為：`{clean_key[:4]}`... (請確認這與你剛複製的金鑰開頭一致)")
+            st.info(f"正在使用金鑰進行搜尋... (前四碼 `{clean_key[:4]}`)")
             
             with st.spinner("正在聯絡 Serper 伺服器，請稍候..."):
                 try:
                     refined_query = f"{search_query} filetype:pdf (site:gov.tw OR site:edu.tw)"
                     serper_url = "https://google.serper.dev/search"
+                    
+                    # 使用變數直接帶入拉桿數值，保證格式絕對正確
                     payload = json.dumps({
                         "q": refined_query,
                         "gl": "tw",
                         "hl": "zh-tw",
-                        "num": 50
+                        "num": num_results
                     })
                     headers = {
                         'X-API-KEY': clean_key,
@@ -108,10 +111,11 @@ with tab2:
                     
                     response = requests.post(serper_url, headers=headers, data=payload, timeout=15)
                     
-                    # 攔截 403 錯誤並印出原始訊息
                     if response.status_code == 403:
-                        st.error("❌ 伺服器拒絕存取 (403 Forbidden)！")
-                        st.error(f"⚠️ Serper 官方詳細錯誤訊息：\n\n`{response.text}`")
+                        st.error("❌ 伺服器拒絕存取 (403 Forbidden)！金鑰可能失效或額度用盡。")
+                        st.stop()
+                    elif response.status_code == 400:
+                        st.error("❌ 請求格式錯誤 (400 Bad Request)！請確認搜尋條件。")
                         st.stop()
                         
                     response.raise_for_status()
