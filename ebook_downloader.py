@@ -11,9 +11,17 @@ st.set_page_config(page_title="工程防災文獻快搜", page_icon="⛏️", la
 st.title("⛏️ 工程防災文獻快搜")
 st.write("專為地質與邊坡工程打造：支援官方網頁深度爬取，以及政府/學術 PDF 報告精準檢索。")
 
+# --- 自動讀取 API Key 機制 ---
+try:
+    # 嘗試從 Streamlit 後台的 Secrets 讀取金鑰
+    saved_api_key = st.secrets["SERPER_API_KEY"]
+except:
+    saved_api_key = ""
+
 st.sidebar.header("⚙️ 搜尋 API 設定")
 st.sidebar.write("請輸入 Serper API 金鑰以啟用第二分頁搜尋功能：")
-SERPER_API_KEY = st.sidebar.text_input("Serper API Key", type="password")
+# 如果後台有設定，這裡的輸入框就會自動填入；沒有則保持空白
+SERPER_API_KEY = st.sidebar.text_input("Serper API Key", type="password", value=saved_api_key)
 st.sidebar.markdown("[👉 點此免費取得 Serper API 金鑰](https://serper.dev/)")
 
 tab1, tab2, tab3 = st.tabs(["🕷️ 官方網址文獻爬取 (Web Scraper)", "🔍 台灣官方 PDF 搜尋 (Serper API)", "🛠️ 隱藏 PDF 破解工具箱"])
@@ -74,7 +82,7 @@ with tab1:
             st.warning("請先輸入網址！")
 
 # ==========================================
-# 分頁 2：台灣官方 PDF 搜尋 (Serper API - 自動翻頁升級版)
+# 分頁 2：台灣官方 PDF 搜尋 (Serper API - 自動無感翻頁版)
 # ==========================================
 with tab2:
     st.subheader("搜尋台灣官方與學術 PDF 文獻")
@@ -82,13 +90,14 @@ with tab2:
     
     search_query = st.text_input("🔍 輸入專業關鍵字：", placeholder="例如: 大規模崩塌 邊坡監測")
     
-    # 數量拉桿不變，我們在後端處理翻頁邏輯
+    # 新增：網頁拉桿，取代手動修改程式碼
     num_results = st.slider("📊 選擇要顯示的文獻數量：", min_value=10, max_value=50, value=20, step=10)
     
     if st.button("開始搜尋官方文獻"):
         if not SERPER_API_KEY:
-            st.error("❌ 請先在左側欄位填入 Serper API Key。")
+            st.error("❌ 請先在左側欄位或後台 Secrets 填入 Serper API Key。")
         elif search_query:
+            # 終極防呆：強制清除任何可能因手動複製而不小心混入的引號與空白
             clean_key = SERPER_API_KEY.strip().replace('"', '').replace("'", "")
             
             with st.spinner(f"正在聯絡伺服器，啟動無感翻頁技術抓取 {num_results} 筆資料，請稍候..."):
@@ -105,7 +114,7 @@ with tab2:
                             "q": refined_query,
                             "gl": "tw",
                             "hl": "zh-tw",
-                            "page": page  # 使用標準 page 參數進行安全翻頁，避開 num 參數的限制
+                            "page": page  # 使用標準 page 參數進行安全翻頁，避開 num 參數限制
                         })
                         headers = {
                             'X-API-KEY': clean_key,
@@ -114,7 +123,7 @@ with tab2:
                         
                         response = requests.post(serper_url, headers=headers, data=payload, timeout=15)
                         
-                        # 顯示最真實的原廠錯誤，方便除錯
+                        # 如果伺服器報錯，直接將原廠錯誤印在畫面上方便除錯
                         if response.status_code >= 400:
                             st.error(f"❌ 伺服器發生錯誤 (HTTP 狀態碼: {response.status_code})！")
                             st.error(f"⚠️ Serper 官方詳細錯誤訊息：\n\n`{response.text}`")
@@ -124,13 +133,12 @@ with tab2:
                         page_results = data.get("organic", [])
                         
                         if not page_results:
-                            break  # 如果某一頁已經沒有資料了，就提早結束翻頁
+                            break  # 如果某頁已經找不到資料，提早結束翻頁迴圈
                             
                         all_results.extend(page_results)
                     
-                    # 顯示最終合併的結果
+                    # 顯示最終合併並裁切的結果
                     if all_results:
-                        # 裁切陣列，確保數量不會超過使用者拉桿要求的數量
                         all_results = all_results[:num_results]
                         st.success(f"✅ 成功找到最相關的 {len(all_results)} 份 PDF 文獻！")
                         
@@ -153,6 +161,16 @@ with tab2:
 with tab3:
     st.subheader("🛠️ 網頁閱讀器 PDF 強制下載工具")
     st.write("當政府網站隱藏了下載按鈕，且使用 PDF.js 渲染電子書時，可使用以下工具強制從瀏覽器記憶體匯出檔案。")
+    
+    st.markdown("### 方法一：建立「一鍵下載」書籤 (推薦)")
+    st.write("這是一段打包好的 JavaScript 書籤代碼 (Bookmarklet)。設定完成後，未來遇到無法下載的 PDF 網頁，只要點擊該書籤即可自動下載，**完全不需要按 F12**。")
+    st.markdown("""
+    **設定步驟：**
+    1. 在瀏覽器的書籤列上點擊右鍵 ➡️ 選擇「新增網頁」或「新增書籤」。
+    2. 名稱隨便取（例如：`強制下載 PDF`）。
+    3. 在「網址」或「URL」欄位中，**貼上以下整段程式碼**，然後存檔。
+    """)
+    
     bookmarklet_code = """javascript:(function(){
     try {
         PDFViewerApplication.pdfDocument.getData().then(data => {
@@ -167,3 +185,17 @@ with tab3:
     }
 })();"""
     st.code(bookmarklet_code, language="javascript")
+    
+    st.markdown("---")
+    
+    st.markdown("### 方法二：主控台 (Console) 終極匯出法")
+    st.write("如果書籤失效，請在該電子書網頁按下 `F12` 開啟開發者工具，切換到 `Console (主控台)`，將以下代碼貼上並按 Enter 執行：")
+    
+    console_code = """PDFViewerApplication.pdfDocument.getData().then(data => {
+  const blob = new Blob([data], { type: 'application/pdf' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '下載文件.pdf';
+  a.click();
+});"""
+    st.code(console_code, language="javascript")
