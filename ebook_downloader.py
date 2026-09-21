@@ -11,10 +11,15 @@ st.set_page_config(page_title="工程防災文獻快搜", page_icon="⛏️", la
 st.title("⛏️ 工程防災文獻快搜")
 st.write("專為地質與邊坡工程打造：支援官方網頁深度爬取，以及政府/學術 PDF 報告精準檢索。")
 
-# --- 側邊欄設定 Serper API ---
+# --- 自動讀取 API Key 機制 ---
+try:
+    saved_api_key = st.secrets["SERPER_API_KEY"]
+except:
+    saved_api_key = ""
+
 st.sidebar.header("⚙️ 搜尋 API 設定")
 st.sidebar.write("請輸入 Serper API 金鑰以啟用第二分頁搜尋功能：")
-SERPER_API_KEY = st.sidebar.text_input("Serper API Key", type="password")
+SERPER_API_KEY = st.sidebar.text_input("Serper API Key", type="password", value=saved_api_key)
 st.sidebar.markdown("[👉 點此免費取得 Serper API 金鑰](https://serper.dev/)")
 
 tab1, tab2, tab3 = st.tabs(["🕷️ 官方網址文獻爬取 (Web Scraper)", "🔍 台灣官方 PDF 搜尋 (Serper API)", "🛠️ 隱藏 PDF 破解工具箱"])
@@ -96,8 +101,9 @@ with tab2:
                         "q": refined_query,
                         "gl": "tw",
                         "hl": "zh-tw",
-                        "num": 100
+                        "num": 20
                     })
+                    # 這裡加入了 .strip() 自動清除可能不小心複製到的空白鍵
                     headers = {
                         'X-API-KEY': SERPER_API_KEY.strip(),
                         'Content-Type': 'application/json'
