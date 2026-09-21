@@ -4,7 +4,7 @@ import cloudscraper
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urljoin
 import os
-from googlesearch import search  # 載入全新的免 API 金鑰 Google 搜尋套件
+from googlesearch import search
 
 st.set_page_config(page_title="地質與邊坡文獻下載中心", page_icon="⛰️", layout="wide")
 
@@ -73,18 +73,18 @@ with tab1:
 # ==========================================
 with tab2:
     st.subheader("搜尋台灣官方與學術 PDF 文獻")
-    st.write("底層強制綁定條件：僅搜尋 `site:.gov.tw` 與 `site:.edu.tw`，且格式限定為 `PDF`。")
+    st.write("底層強制綁定條件：僅搜尋 `site:gov.tw`，且格式限定為 `PDF`。")
     
-    search_query = st.text_input("🔍 輸入專業關鍵字：", placeholder="例如: 大規模崩塌 邊坡監測 發生機制")
+    search_query = st.text_input("🔍 輸入專業關鍵字：", placeholder="例如: 大規模崩塌 邊坡監測")
     
     if st.button("開始搜尋官方文獻"):
         if search_query:
             with st.spinner("正在搜尋 Google 文獻資料庫，請稍候..."):
                 try:
-                    # 強制加入搜尋條件，鎖定台灣政府與學術網站的 PDF
-                    refined_query = f"{search_query} filetype:pdf (site:gov.tw OR site:edu.tw)"
+                    # 簡化搜尋條件，減少被 Google 阻擋的機率
+                    refined_query = f"{search_query} filetype:pdf site:gov.tw"
                     
-                    # 使用 googlesearch-python 進行搜尋，advanced=True 會抓出標題與描述
+                    # 使用 googlesearch-python 進行搜尋
                     results = list(search(refined_query, num_results=10, lang="zh-TW", advanced=True))
                         
                     if results:
@@ -96,7 +96,7 @@ with tab2:
                             st.markdown(f"[📥 點此直接下載 PDF 檔案]({item.url})")
                             st.markdown("---")
                     else:
-                        st.warning("找不到符合條件的 PDF，請嘗試精簡關鍵字！")
+                        st.warning("找不到符合條件的 PDF。這可能是關鍵字沒有匹配結果，或是 Google 暫時封鎖了此程式的搜尋請求。")
                         
                 except Exception as e:
                     st.error(f"❌ 搜尋失敗，請稍後再試: {e}")
