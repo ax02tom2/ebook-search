@@ -11,15 +11,10 @@ st.set_page_config(page_title="工程防災文獻快搜", page_icon="⛏️", la
 st.title("⛏️ 工程防災文獻快搜")
 st.write("專為地質與邊坡工程打造：支援官方網頁深度爬取，以及政府/學術 PDF 報告精準檢索。")
 
-# --- 自動讀取 API Key 機制 ---
-try:
-    saved_api_key = st.secrets["SERPER_API_KEY"]
-except:
-    saved_api_key = ""
-
 st.sidebar.header("⚙️ 搜尋 API 設定")
 st.sidebar.write("請輸入 Serper API 金鑰以啟用第二分頁搜尋功能：")
-SERPER_API_KEY = st.sidebar.text_input("Serper API Key", type="password", value=saved_api_key)
+# 取消自動讀取，回到最單純的輸入框
+SERPER_API_KEY = st.sidebar.text_input("Serper API Key", type="password")
 st.sidebar.markdown("[👉 點此免費取得 Serper API 金鑰](https://serper.dev/)")
 
 tab1, tab2, tab3 = st.tabs(["🕷️ 官方網址文獻爬取 (Web Scraper)", "🔍 台灣官方 PDF 搜尋 (Serper API)", "🛠️ 隱藏 PDF 破解工具箱"])
@@ -92,24 +87,33 @@ with tab2:
         if not SERPER_API_KEY:
             st.error("❌ 請先在左側欄位填入 Serper API Key。")
         elif search_query:
-            with st.spinner("正在透過專業 API 搜尋 Google 文獻資料庫，請稍候..."):
+            # 防呆機制：強制清除任何可能的引號與空白
+            clean_key = SERPER_API_KEY.strip().replace('"', '').replace("'", "")
+            st.info(f"🕵️ 正在測試的金鑰前四碼為：`{clean_key[:4]}`... (請確認這與你剛複製的金鑰開頭一致)")
+            
+            with st.spinner("正在聯絡 Serper 伺服器，請稍候..."):
                 try:
                     refined_query = f"{search_query} filetype:pdf (site:gov.tw OR site:edu.tw)"
-                    
                     serper_url = "https://google.serper.dev/search"
                     payload = json.dumps({
                         "q": refined_query,
                         "gl": "tw",
                         "hl": "zh-tw",
-                        "num": 20
+                        "num": 10
                     })
-                    # 這裡加入了 .strip() 自動清除可能不小心複製到的空白鍵
                     headers = {
-                        'X-API-KEY': SERPER_API_KEY.strip(),
+                        'X-API-KEY': clean_key,
                         'Content-Type': 'application/json'
                     }
                     
                     response = requests.post(serper_url, headers=headers, data=payload, timeout=15)
+                    
+                    # 攔截 403 錯誤並印出原始訊息
+                    if response.status_code == 403:
+                        st.error("❌ 伺服器拒絕存取 (403 Forbidden)！")
+                        st.error(f"⚠️ Serper 官方詳細錯誤訊息：\n\n`{response.text}`")
+                        st.stop()
+                        
                     response.raise_for_status()
                     data = response.json()
                         
@@ -117,7 +121,6 @@ with tab2:
                     
                     if results:
                         st.success(f"✅ 成功找到最相關的 {len(results)} 份 PDF 文獻！")
-                        
                         for idx, item in enumerate(results):
                             st.markdown(f"### {idx+1}. {item.get('title', '無標題')}")
                             st.markdown(f"> {item.get('snippet', '無摘要描述')}")
@@ -127,7 +130,7 @@ with tab2:
                         st.warning("找不到符合條件的 PDF。請嘗試精簡關鍵字。")
                         
                 except Exception as e:
-                    st.error(f"❌ 搜尋失敗，請確認 API Key 是否正確或稍後再試: {e}")
+                    st.error(f"❌ 搜尋失敗，發生未預期錯誤: {e}")
         else:
             st.warning("請輸入搜尋關鍵字！")
 
@@ -137,16 +140,6 @@ with tab2:
 with tab3:
     st.subheader("🛠️ 網頁閱讀器 PDF 強制下載工具")
     st.write("當政府網站隱藏了下載按鈕，且使用 PDF.js 渲染電子書時，可使用以下工具強制從瀏覽器記憶體匯出檔案。")
-    
-    st.markdown("### 方法一：建立「一鍵下載」書籤 (推薦)")
-    st.write("這是一段打包好的 JavaScript 書籤代碼 (Bookmarklet)。設定完成後，未來遇到無法下載的 PDF 網頁，只要點擊該書籤即可自動下載，**完全不需要按 F12**。")
-    st.markdown("""
-    **設定步驟：**
-    1. 在瀏覽器的書籤列上點擊右鍵 ➡️ 選擇「新增網頁」或「新增書籤」。
-    2. 名稱隨便取（例如：`強制下載 PDF`）。
-    3. 在「網址」或「URL」欄位中，**貼上以下整段程式碼**，然後存檔。
-    """)
-    
     bookmarklet_code = """javascript:(function(){
     try {
         PDFViewerApplication.pdfDocument.getData().then(data => {
@@ -161,17 +154,3 @@ with tab3:
     }
 })();"""
     st.code(bookmarklet_code, language="javascript")
-    
-    st.markdown("---")
-    
-    st.markdown("### 方法二：主控台 (Console) 終極匯出法")
-    st.write("如果書籤失效，請在該電子書網頁按下 `F12` 開啟開發者工具，切換到 `Console (主控台)`，將以下代碼貼上並按 Enter 執行：")
-    
-    console_code = """PDFViewerApplication.pdfDocument.getData().then(data => {
-  const blob = new Blob([data], { type: 'application/pdf' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = '下載文件.pdf';
-  a.click();
-});"""
-    st.code(console_code, language="javascript")
