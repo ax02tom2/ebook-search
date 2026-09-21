@@ -6,10 +6,12 @@ from urllib.parse import urlparse, urljoin
 import os
 import json
 
-st.set_page_config(page_title="地質與邊坡文獻下載中心", page_icon="⛰️", layout="wide")
+# 修改網頁分頁標籤名稱與圖示
+st.set_page_config(page_title="GeoDocs 探勘者", page_icon="⛏️", layout="wide")
 
-st.title("⛰️ 地質與邊坡監測文獻下載中心")
-st.write("專為工程防災領域打造：支援官方網頁深度爬取，以及政府/學術 PDF 精準搜尋。")
+# 修改網頁主標題
+st.title("⛏️ GeoDocs 探勘者：工程防災文獻快搜")
+st.write("專為地質與邊坡工程打造：支援官方網頁深度爬取，以及政府/學術 PDF 報告精準檢索。")
 
 # --- 側邊欄設定 Serper API ---
 st.sidebar.header("⚙️ 搜尋 API 設定")
