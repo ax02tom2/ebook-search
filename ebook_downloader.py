@@ -25,9 +25,23 @@ with tab1:
         if url:
             try:
                 with st.spinner("正在連線並解析網頁，請稍候..."):
-                    # 假裝是正常的瀏覽器，避免被網站阻擋
-                    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-                    response = requests.get(url, headers=headers, timeout=15)
+                    # 🌟 進階模擬真實瀏覽器標頭 (Headers)
+                    advanced_headers = {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+                        'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
+                        'Accept-Encoding': 'gzip, deflate, br',
+                        'Connection': 'keep-alive',
+                        'Upgrade-Insecure-Requests': '1',
+                        'Sec-Fetch-Dest': 'document',
+                        'Sec-Fetch-Mode': 'navigate',
+                        'Sec-Fetch-Site': 'none',
+                        'Sec-Fetch-User': '?1'
+                    }
+                    
+                    # 使用 Session 處理可能的 Cookie 檢查
+                    session = requests.Session()
+                    response = session.get(url, headers=advanced_headers, timeout=20)
                     response.raise_for_status()
                     
                     content_type = response.headers.get('Content-Type', '').lower()
@@ -50,15 +64,12 @@ with tab1:
                         st.write("🕵️‍♂️ 判定為網頁，正在分析頁面內的下載按鈕...")
                         soup = BeautifulSoup(response.text, 'html.parser')
                         
-                        # 找出所有帶有 href 的 <a> 標籤
                         links = soup.find_all('a', href=True)
                         found_files = []
                         
                         for a in links:
                             href = a['href']
-                            # 將相對路徑轉換為絕對完整網址
                             full_url = urljoin(url, href)
-                            # 篩選常見的電子書副檔名
                             if any(ext in full_url.lower() for ext in ['.epub', '.pdf', '.mobi', '.azw3']):
                                 link_text = a.text.strip() or "未命名連結"
                                 found_files.append({"text": link_text, "url": full_url})
@@ -66,12 +77,13 @@ with tab1:
                         if found_files:
                             st.success(f"✅ 在網頁中發現 {len(found_files)} 個下載連結！")
                             for idx, item in enumerate(found_files):
-                                # 提供連結讓使用者可以另開視窗，或直接在這裡串接下載
                                 st.markdown(f"**{idx+1}. {item['text']}**")
                                 st.markdown(f"[🔗 點此前往下載檔案]({item['url']})")
                         else:
-                            st.warning("⚠️ 網頁中沒有找到常見的電子書下載連結 (.epub, .pdf, .mobi)。請確認該網頁是否有提供直接下載。")
+                            st.warning("⚠️ 網頁中沒有找到常見的電子書下載連結 (.epub, .pdf, .mobi)。")
                             
+            except requests.exceptions.Timeout:
+                st.error("❌ 連線逾時 (Timeout)：該網站可能回應太慢，或是其防火牆阻擋了此次自動化請求。")
             except Exception as e:
                 st.error(f"❌ 解析失敗: {e}")
         else:
@@ -90,9 +102,8 @@ with tab2:
         if search_query:
             with st.spinner("正在搜尋書庫..."):
                 try:
-                    # 呼叫 Gutendex API
                     api_url = f"https://gutendex.com/books/?search={search_query}"
-                    res = requests.get(api_url, timeout=10)
+                    res = requests.get(api_url, timeout=15)
                     data = res.json()
                     
                     results = data.get('results', [])
@@ -100,24 +111,20 @@ with tab2:
                     if results:
                         st.success(f"✅ 找到 {len(results)} 本相關書籍！")
                         
-                        # 使用排版讓書籍以網格方式呈現
-                        for book in results[:10]: # 先顯示前 10 筆避免過載
+                        for book in results[:10]:
                             with st.container():
                                 col1, col2 = st.columns([1, 4])
                                 
-                                # 書封圖片
                                 formats = book.get('formats', {})
                                 cover_url = formats.get('image/jpeg', 'https://via.placeholder.com/150')
                                 with col1:
                                     st.image(cover_url, width=120)
                                     
-                                # 書籍資訊與下載按鈕
                                 with col2:
                                     st.markdown(f"### {book.get('title', '未知書名')}")
                                     authors = [author['name'] for author in book.get('authors', [])]
                                     st.markdown(f"**作者：** {', '.join(authors) if authors else '未知'}")
                                     
-                                    # 抓取 ePub 下載連結
                                     epub_url = formats.get('application/epub+zip')
                                     if epub_url:
                                         st.markdown(f"[📥 點此直接下載 EPUB 格式]({epub_url})")
