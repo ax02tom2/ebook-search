@@ -12,10 +12,17 @@ st.set_page_config(page_title="工程防災文獻快搜", page_icon="⛏️", la
 st.title("⛏️ 工程防災文獻快搜")
 st.write("專為地質與邊坡工程打造：支援官方網頁深度爬取，以及政府/學術 PDF 報告精準檢索。")
 
-# --- 側邊欄設定 Serper API ---
+# --- 自動讀取 API Key 機制 ---
+# 嘗試從 Streamlit 機密檔中讀取，若沒有則保持空白
+try:
+    saved_api_key = st.secrets["SERPER_API_KEY"]
+except:
+    saved_api_key = ""
+
 st.sidebar.header("⚙️ 搜尋 API 設定")
 st.sidebar.write("請輸入 Serper API 金鑰以啟用第二分頁搜尋功能：")
-SERPER_API_KEY = st.sidebar.text_input("Serper API Key", type="password")
+# 將讀取到的密碼設為預設值
+SERPER_API_KEY = st.sidebar.text_input("Serper API Key", type="password", value=saved_api_key)
 st.sidebar.markdown("[👉 點此免費取得 Serper API 金鑰](https://serper.dev/)")
 
 # 新增第三個分頁
