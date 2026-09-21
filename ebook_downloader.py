@@ -4,19 +4,14 @@ import cloudscraper
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urljoin
 import os
+from duckduckgo_search import DDGS
 
 st.set_page_config(page_title="地質與邊坡文獻下載中心", page_icon="⛰️", layout="wide")
 
 st.title("⛰️ 地質與邊坡監測文獻下載中心")
-st.write("專為工程防災領域打造：支援官方網頁深度爬取，以及政府/學術 PDF 精準搜尋。")
+st.write("專為工程防災領域打造：支援官方網頁深度爬取，以及政府/學術 PDF 精準搜尋 (免 API Key)。")
 
-# --- 側邊欄設定 Google API ---
-st.sidebar.header("⚙️ Google 搜尋 API 設定")
-st.sidebar.write("請輸入憑證以啟用第二分頁的搜尋功能：")
-GOOGLE_API_KEY = st.sidebar.text_input("Google API Key", type="password")
-GOOGLE_CX = st.sidebar.text_input("搜尋引擎 ID (CX)", type="password")
-
-tab1, tab2 = st.tabs(["🕷️ 官方網址文獻爬取 (Web Scraper)", "🔍 台灣官方 PDF 搜尋 (Google Search)"])
+tab1, tab2 = st.tabs(["🕷️ 官方網址文獻爬取 (Web Scraper)", "🔍 台灣官方 PDF 搜尋 (DuckDuckGo)"])
 
 # ==========================================
 # 分頁 1：官方網址文獻爬取
@@ -50,7 +45,9 @@ with tab1:
                         found_files = []
                         
                         for a in links:
-                            href = a['href']
+                            href = a.get('href')
+                            if not href:
+                                continue
                             full_url = urljoin(url, href)
                             if any(ext in full_url.lower() for ext in target_exts):
                                 link_text = a.text.strip() or os.path.basename(urlparse(full_url).path)
@@ -72,48 +69,38 @@ with tab1:
             st.warning("請先輸入網址！")
 
 # ==========================================
-# 分頁 2：台灣官方 PDF 搜尋 (Google Custom Search)
+# 分頁 2：台灣官方 PDF 搜尋 (DuckDuckGo 引擎)
 # ==========================================
 with tab2:
     st.subheader("搜尋台灣官方與學術 PDF 文獻")
-    st.write("已在底層強制綁定條件：僅搜尋 `site:.gov.tw` 與 `site:.edu.tw`，且格式限定為 `PDF`。")
+    st.write("底層強制綁定條件：僅搜尋 `site:.gov.tw` 與 `site:.edu.tw`，且格式限定為 `PDF`。")
     
     search_query = st.text_input("🔍 輸入專業關鍵字：", placeholder="例如: 大規模崩塌 邊坡監測 發生機制")
     
     if st.button("開始搜尋官方文獻"):
-        if not GOOGLE_API_KEY or not GOOGLE_CX:
-            st.error("❌ 請先在左側欄位填入 Google API Key 與 搜尋引擎 ID (CX)。")
-        elif search_query:
-            with st.spinner("正在向 Google 請求官方文獻資料..."):
+        if search_query:
+            with st.spinner("正在搜尋文獻資料庫，請稍候..."):
                 try:
-                    # 強制加入搜尋條件
-                    refined_query = f"{search_query} filetype:pdf (site:.gov.tw OR site:.edu.tw)"
-                    api_url = "https://www.googleapis.com/customsearch/v1"
-                    params = {
-                        "key": GOOGLE_API_KEY,
-                        "cx": GOOGLE_CX,
-                        "q": refined_query,
-                        "num": 10  # 回傳前 10 筆
-                    }
+                    # 強制加入搜尋條件，鎖定台灣政府與學術網站的 PDF
+                    refined_query = f"{search_query} filetype:pdf site:gov.tw"
                     
-                    res = requests.get(api_url, params=params, timeout=15)
-                    data = res.json()
-                    
-                    if "error" in data:
-                        st.error(f"API 錯誤：{data['error']['message']}")
-                    elif "items" in data:
-                        results = data["items"]
+                    # 使用 DuckDuckGo 進行搜尋
+                    with DDGS() as ddgs:
+                        # 取得前 10 筆結果
+                        results = list(ddgs.text(refined_query, max_results=10))
+                        
+                    if results:
                         st.success(f"✅ 找到最相關的 {len(results)} 份 PDF 文獻！")
                         
                         for idx, item in enumerate(results):
                             st.markdown(f"### {idx+1}. {item.get('title')}")
-                            st.markdown(f"> {item.get('snippet')}")
-                            st.markdown(f"[📥 點此直接下載 PDF 檔案]({item.get('link')})")
+                            st.markdown(f"> {item.get('body')}")
+                            st.markdown(f"[📥 點此直接下載 PDF 檔案]({item.get('href')})")
                             st.markdown("---")
                     else:
-                        st.warning("找不到符合條件的 PDF，請嘗試精簡關鍵字！")
+                        st.warning("找不到符合條件的 PDF，請嘗試精簡關鍵字（或是替換不同的工程詞彙）！")
                         
                 except Exception as e:
-                    st.error(f"❌ 搜尋失敗: {e}")
+                    st.error(f"❌ 搜尋失敗，請稍後再試: {e}")
         else:
             st.warning("請輸入搜尋關鍵字！")
